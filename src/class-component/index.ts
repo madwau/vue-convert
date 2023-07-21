@@ -210,7 +210,10 @@ function sortVueComponentClassMembers(ast: t.File) {
 }
 
 function postProcessCode(code: string) {
-  return singleLineForGettersAndActions(code);
+  code = singleLineForGettersAndActions(code);
+  code = removeNewlineBetweenVuexHelpersOfSameType(code);
+  code = removeNewlinesInClassDecorator(code);
+  return code;
 }
 
 function singleLineForGettersAndActions(code: string) {
@@ -227,6 +230,61 @@ function singleLineForGettersAndActions(code: string) {
       i++;
     } else {
       resultLines.push(line);
+    }
+  }
+
+  return resultLines.join('\n');
+}
+
+function removeNewlineBetweenVuexHelpersOfSameType(code: string) {
+  const lines = code.split('\n');
+  const resultLines: string[] = [];
+
+  const patterns = [/^@.*\.Getter\(.*\)/, /^@.*\.Action\(.*\)/];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    resultLines.push(line);
+
+    if (i + 2 >= lines.length) {
+      continue;
+    }
+
+    const nextLine = lines[i + 1];
+    const matchingPattern = patterns.find(pattern => pattern.test(line.trim()));
+    const nextLineIsEmpty = nextLine.trim() === '';
+
+    if (matchingPattern && nextLineIsEmpty && i + 2 < lines.length) {
+      const nextNextLine = lines[i + 2];
+      if (matchingPattern.test(nextNextLine.trim())) {
+        i++;
+      }
+    }
+  }
+
+  return resultLines.join('\n');
+}
+
+function removeNewlinesInClassDecorator(code: string) {
+  const lines = code.split('\n');
+  const resultLines: string[] = [];
+
+  let inDecorator = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === '@Component({') {
+      inDecorator = true;
+    }
+    if (inDecorator) {
+      if (line.trim() !== '') {
+        resultLines.push(line);
+      }
+    } else {
+      resultLines.push(line);
+    }
+    if (line === '})') {
+      inDecorator = false;
     }
   }
 
