@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import meow = require('meow');
-import * as fs from 'fs';
-import { join as joinPaths } from 'path';
 import readdirRecursive = require('fs-readdir-recursive');
 import flatMap = require('lodash.flatmap');
+import * as fs from 'fs';
+import { join as joinPaths } from 'path';
 import { convertSfcSource } from './sfc';
 import { wrapComponentSourceWithExtend } from './wrap-extend';
 import { convertComponentSourceToClass } from './class-component';
@@ -171,8 +171,7 @@ export default class VueConvertCli {
       } catch (e) {
         const ex: Error = e;
         console.error(`${file}: ${ex.message}`);
-        process.exit(1);
-        throw ''; // See https://github.com/Microsoft/TypeScript/issues/12825
+        converted = null;
       }
 
       if (converted === null) continue;

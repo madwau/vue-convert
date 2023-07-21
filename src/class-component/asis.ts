@@ -54,7 +54,14 @@ export function maybeConvertMethod(
 }
 
 export function convertSpreadVuexHelpers(spread: t.SpreadElement, object_name: string): ClassMember[] {
-  const callExpression = spread.argument as t.CallExpression;
+  if (!t.isCallExpression(spread.argument)) {
+    console.warn(
+      `Spread property is found in ${object_name} object. Automatic conversion of object spread is not supported.`,
+    );
+    return [spreadTodoMethod(spread)];
+  }
+
+  const callExpression = spread.argument;
   const vuexHelperName = (callExpression.callee as t.Identifier).name;
 
   const vuexHelperMap = {
@@ -73,7 +80,7 @@ export function convertSpreadVuexHelpers(spread: t.SpreadElement, object_name: s
   const mapExpression = callExpression.arguments[1];
 
   // Example: { namespace: "Participants", decoratorName: "participantsStore.Action" }
-  const namespace = (namespaceExpression.object as t.Identifier).name;
+  const namespace = getNamespaceFromNamespaceExpression(namespaceExpression);
   const decoratorName = `${lowerFirst(namespace)}Store.${vuexHelperMap[vuexHelperName]}`;
 
   if (t.isObjectExpression(mapExpression)) {
@@ -98,4 +105,13 @@ export function convertSpreadVuexHelpers(spread: t.SpreadElement, object_name: s
     `Spread property with unsupported expression found in ${object_name} object. Automatic conversion is not supported.`,
   );
   return [spreadTodoMethod(spread)];
+}
+
+function getNamespaceFromNamespaceExpression(namespaceExpression: t.CallExpression['arguments'][0]): string {
+  if (t.isStringLiteral(namespaceExpression)) {
+    return namespaceExpression.value;
+  } else if (t.isMemberExpression(namespaceExpression)) {
+    return (namespaceExpression.object as t.Identifier).name;
+  }
+  throw new Error('Invalid namespace expression');
 }

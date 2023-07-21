@@ -48,7 +48,19 @@ const RECAST_OPTIONS: RecastOptions = {
 };
 
 export function convertComponentSourceToClass(source: string, file: string): string | null {
-  const ast = recast.parse(source, { parser });
+  if (source.includes('@Component')) {
+    console.debug(`${file}: Already has @Component decorator.`);
+    return null;
+  }
+
+  let ast: t.File;
+
+  try {
+    ast = recast.parse(source, { parser });
+  } catch (e) {
+    console.warn(`${file}: Failed to parse: ${e.message}`);
+    return null;
+  }
 
   const exported = ast.program.body.find(node => t.isExportDefaultDeclaration(node)) as t.ExportDefaultDeclaration;
 
