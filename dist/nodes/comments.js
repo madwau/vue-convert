@@ -32,7 +32,7 @@ function lineComment(text) {
         type: 'CommentLine',
         value: ` ${text}`,
         leading: true,
-        trailing: false
+        trailing: false,
     };
 }
 exports.lineComment = lineComment;

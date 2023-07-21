@@ -4,13 +4,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const recast = require("recast");
 const parser = require("recast/parsers/babylon");
 const t = require("@babel/types");
-const flatMap = require("lodash.flatmap");
 const utils_1 = require("../nodes/utils");
 const asis_1 = require("./asis");
 const computed_1 = require("./computed");
 const data_1 = require("./data");
 const props_1 = require("./props");
 const methods_1 = require("./methods");
+const lodash_1 = require("lodash");
 // TODO: if name is not UpperCamelCase, use name option.
 // name?: string;
 // TODO: support properly inferred 'extends'
@@ -36,18 +36,22 @@ const COMPONENT_OPTION_NAMES = [
     // vue-router
     'route',
     // Vue SSR
-    'serverCacheKey'
+    'serverCacheKey',
 ];
 const COMPONENT_OPTION_NAME_SET = new Set(COMPONENT_OPTION_NAMES);
+const RECAST_OPTIONS = {
+    quote: 'single',
+    trailingComma: true,
+};
 function convertComponentSourceToClass(source, file) {
     const ast = recast.parse(source, { parser });
     const exported = ast.program.body.find(node => t.isExportDefaultDeclaration(node));
     if (!exported) {
-        console.warn(`${file}: No export default declration found.`);
+        console.warn(`${file}: No export default declaration found.`);
         return null;
     }
     if (t.isClassDeclaration(exported.declaration)) {
-        console.warn(`${file}: Already has default exported class declration.`);
+        console.warn(`${file}: Already has default exported class declaration.`);
         return null;
     }
     if (!t.isObjectExpression(exported.declaration)) {
@@ -56,8 +60,18 @@ function convertComponentSourceToClass(source, file) {
     }
     const { classDeclaration, importNames } = convertComponentToClass(exported.declaration);
     exported.declaration = classDeclaration;
+    // Add: const demosStore = namespace(Demos.type);
+    const { numberOfDeclarations: numberOfVuexStoreDeclarations } = addVuexStoreDeclarations(ast);
+    // Add: import { Vue, Component, Prop } from 'vue-property-decorator'
     ast.program.body.unshift(writeImport(importNames));
-    return recast.print(ast).code;
+    if (numberOfVuexStoreDeclarations > 0) {
+        // Add: import { namespace } from 'vuex-class';
+        addVuexClassNamespaceImport(ast);
+    }
+    removeNotNeededImports(ast);
+    sortVueComponentClassMembers(ast);
+    const code = recast.print(ast, RECAST_OPTIONS).code;
+    return postProcessCode(code);
 }
 exports.convertComponentSourceToClass = convertComponentSourceToClass;
 function writeImport(names) {
@@ -69,7 +83,7 @@ function convertComponentToClass(componentAst) {
     if (nameProperty && t.isStringLiteral(nameProperty.value)) {
         name = nameProperty.value.value;
     }
-    const className = name.replace(/(?:^|-)(\w)/g, (_, p1) => p1.toUpperCase()); // UpperCamzelize
+    const className = name.replace(/(?:^|-)(\w)/g, (_, p1) => p1.toUpperCase()); // UpperCamelize
     const { classMembers, decoratorNames } = convertComponentBody(componentAst);
     const classDeclaration = t.classDeclaration(t.identifier(className), t.identifier('Vue'), // superClass
     t.classBody(classMembers), [writeDecorator(componentAst, name === className)]);
@@ -97,7 +111,7 @@ function requireObjectExpression(member, callback) {
 function convertComponentBody(componentAst) {
     const componentMembers = componentAst.properties.filter(p => !isComponentOption(p));
     const decoratorNameSet = new Set();
-    const classMembers = flatMap(componentMembers, (member) => {
+    const classMembers = lodash_1.flatMap(componentMembers, (member) => {
         if (t.isSpreadElement(member)) {
             console.warn('Spread property is found in component definition. Automatic conversion of object spread is not supported.');
             return [utils_1.spreadTodoMethod(member)];
@@ -129,4 +143,156 @@ function convertComponentBody(componentAst) {
         return asis_1.convertGenericProperty(member);
     });
     return { classMembers, decoratorNames: [...decoratorNameSet] };
+}
+function addVuexClassNamespaceImport(ast) {
+    const importDeclaration = t.importDeclaration([t.importSpecifier(t.identifier('namespace'), t.identifier('namespace'))], t.stringLiteral('vuex-class'));
+    const vuePropertyDecoratorImportIndex = ast.program.body.findIndex(node => {
+        return t.isImportDeclaration(node) && node.source.value === 'vue-property-decorator';
+    });
+    if (vuePropertyDecoratorImportIndex > -1) {
+        ast.program.body.splice(vuePropertyDecoratorImportIndex + 1, 0, importDeclaration);
+    }
+}
+function removeNotNeededImports(ast) {
+    // Remove: import Vue from 'vue'
+    ast.program.body = ast.program.body.filter(node => {
+        return !(t.isImportDeclaration(node) &&
+            node.source.value === 'vue' &&
+            node.specifiers.length === 1 &&
+            node.specifiers[0].local.name === 'Vue');
+    });
+    // Remove: import { mapActions, mapGetters } from 'vuex';
+    ast.program.body = ast.program.body.filter(node => {
+        return !(t.isImportDeclaration(node) && node.source.value === 'vuex');
+    });
+}
+function addVuexStoreDeclarations(ast) {
+    const vueComponentIndex = ast.program.body.findIndex(node => {
+        return t.isExportDefaultDeclaration(node);
+    });
+    const vueComponent = ast.program.body[vueComponentIndex];
+    const classBody = vueComponent.declaration.body;
+    const storeNames = classBody.body
+        .filter((member) => t.isClassProperty(member))
+        .filter(member => member.decorators && member.decorators.length === 1)
+        .map(member => member.decorators[0].expression.callee.name)
+        .filter(decoratorName => decoratorName.endsWith('Store.Getter') || decoratorName.endsWith('Store.Action'))
+        .map(decoratorName => decoratorName.split('.')[0]);
+    const uniqueStoreNames = [...new Set(storeNames)].sort();
+    const declarations = uniqueStoreNames.map(storeName => {
+        const storeObject = lodash_1.upperFirst(storeName).replace(/Store$/, '');
+        const rhsArgument = t.memberExpression(t.identifier(storeObject), t.identifier('type'));
+        const rhsExpression = t.callExpression(t.identifier('namespace'), [rhsArgument]);
+        return t.variableDeclaration('const', [t.variableDeclarator(t.identifier(storeName), rhsExpression)]);
+    });
+    declarations.reverse().forEach(declaration => {
+        ast.program.body.splice(vueComponentIndex, 0, declaration);
+    });
+    return {
+        numberOfDeclarations: declarations.length,
+    };
+}
+function sortVueComponentClassMembers(ast) {
+    const vueComponent = ast.program.body.find(node => {
+        return t.isExportDefaultDeclaration(node);
+    });
+    const classBody = vueComponent.declaration.body;
+    classBody.body = lodash_1.sortBy(classBody.body, member => {
+        const typeProp = ['ClassProperty', 'ClassMethod'].indexOf(member.type);
+        const numberOfDecorators = t.isClassProperty(member) && member.decorators ? member.decorators.length : 0;
+        return [typeProp, -numberOfDecorators];
+    });
+}
+function postProcessCode(code) {
+    code = singleLineForProps(code);
+    code = singleLineForGettersAndActions(code);
+    code = removeNewlineBetweenBlocksOfSameType(code);
+    code = removeNewlinesInClassDecorator(code);
+    return code;
+}
+function singleLineForProps(code) {
+    const lines = code.split('\n');
+    const resultLines = [];
+    const patterns = [/@Prop\(/, /@PropSync\(/];
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        let lineToPush = line;
+        if (patterns.some(pattern => pattern.test(line.trim()))) {
+            for (let j = i + 1; j < lines.length; j++) {
+                const nextLine = lines[j];
+                if (nextLine.trim() === '})') {
+                    lineToPush = lineToPush.replace(/,$/, '');
+                }
+                lineToPush += ` ${nextLine.trim()}`;
+                i++;
+                if (nextLine.includes(';')) {
+                    break;
+                }
+            }
+        }
+        resultLines.push(lineToPush);
+    }
+    return resultLines.join('\n');
+}
+function singleLineForGettersAndActions(code) {
+    const lines = code.split('\n');
+    const resultLines = [];
+    const patterns = [/^@.*\.Getter\(.*\)$/, /^@.*\.Action\(.*\)$/];
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (patterns.some(pattern => pattern.test(line.trim())) && i + 1 < lines.length) {
+            const nextLine = lines[i + 1];
+            resultLines.push(`${line} ${nextLine.trim()}`);
+            i++;
+        }
+        else {
+            resultLines.push(line);
+        }
+    }
+    return resultLines.join('\n');
+}
+function removeNewlineBetweenBlocksOfSameType(code) {
+    const lines = code.split('\n');
+    const resultLines = [];
+    const patterns = [/@Prop\(/, /@PropSync\(/, /^@.*\.Getter\(.*\)/, /^@.*\.Action\(.*\)/];
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        resultLines.push(line);
+        if (i + 2 >= lines.length) {
+            continue;
+        }
+        const nextLine = lines[i + 1];
+        const matchingPattern = patterns.find(pattern => pattern.test(line.trim()));
+        const nextLineIsEmpty = nextLine.trim() === '';
+        if (matchingPattern && nextLineIsEmpty && i + 2 < lines.length) {
+            const nextNextLine = lines[i + 2];
+            if (matchingPattern.test(nextNextLine.trim())) {
+                i++;
+            }
+        }
+    }
+    return resultLines.join('\n');
+}
+function removeNewlinesInClassDecorator(code) {
+    const lines = code.split('\n');
+    const resultLines = [];
+    let inDecorator = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() === '@Component({') {
+            inDecorator = true;
+        }
+        if (inDecorator) {
+            if (line.trim() !== '') {
+                resultLines.push(line);
+            }
+        }
+        else {
+            resultLines.push(line);
+        }
+        if (line === '})') {
+            inDecorator = false;
+        }
+    }
+    return resultLines.join('\n');
 }

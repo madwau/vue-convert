@@ -31,7 +31,7 @@ function convertAndModifyData(memberAst) {
     comments_1.copyParentNodeComments({
         leading: classProperties[0],
         trailing: classProperties[classProperties.length - 1],
-        parent: memberAst
+        parent: memberAst,
     });
     return classProperties;
 }
@@ -73,7 +73,7 @@ function convertPropertyOfData(property) {
         console.warn('Spread property is found in data object. Automatic conversion of object spread is not supported.');
         return {
             classProperty: utils_1.spreadTodoProperty(property),
-            keepObjectMember: 'vue-convert: Cannot convert spread in data, as its order in object can be important.'
+            keepObjectMember: 'vue-convert: Cannot convert spread in data, as its order in object can be important.',
         };
     }
     const key = utils_1.literalKey(property.key) || 'TODO_invalidKey';
@@ -98,6 +98,6 @@ function convertPropertyOfData(property) {
     }
     return {
         classProperty: comments_1.copyNodeComments(t.classProperty(t.identifier(key), expr), property),
-        keepObjectMember: false
+        keepObjectMember: false,
     };
 }

@@ -7,7 +7,7 @@ function convertSfcSource(source, file, converter) {
         source,
         compiler: vueCompiler,
         compilerParseOptions: { pad: 'space' },
-        needMap: false
+        needMap: false,
     });
     if (!sfc.script) {
         console.warn(`${file}: No <script> section. Nothing to do.`);

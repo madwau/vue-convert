@@ -1,16 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const t = require("@babel/types");
-const flatMap = require("lodash.flatmap");
 const utils_1 = require("../nodes/utils");
 const comments_1 = require("../nodes/comments");
 const asis_1 = require("./asis");
+const flatMap = require("lodash.flatmap");
 function convertComputed(objectAst) {
     return flatMap(objectAst.properties, p => {
-        if (t.isSpreadElement(p)) {
-            console.warn('Spread property is found in computed object. Automatic conversion of object spread is not supported.');
-            return [utils_1.spreadTodoMethod(p)];
-        }
+        if (t.isSpreadElement(p))
+            return asis_1.convertSpreadVuexHelpers(p, 'computed');
         return computedObjectMemberToClassMember(p);
     });
 }

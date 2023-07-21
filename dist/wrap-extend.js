@@ -26,7 +26,9 @@ function wrapComponentSourceWithExtend(source, file) {
     if (locals.indexOf('Vue') < 0) {
         ast.program.body.unshift(t.importDeclaration([t.importDefaultSpecifier(t.identifier('Vue'))], t.stringLiteral('vue')));
     }
-    exported.declaration = t.callExpression(t.memberExpression(t.identifier('Vue'), t.identifier('extend')), [objectExpr]);
+    exported.declaration = t.callExpression(t.memberExpression(t.identifier('Vue'), t.identifier('extend')), [
+        objectExpr,
+    ]);
     return recast.print(ast).code;
 }
 exports.wrapComponentSourceWithExtend = wrapComponentSourceWithExtend;

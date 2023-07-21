@@ -78,7 +78,7 @@ function checkThisUsed(expr) {
             if (state.skipNode === node) {
                 state.skipNode = null;
             }
-        }
+        },
     }, { skipNode: null, stop: false });
     return thisUsed;
 }

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const t = require("@babel/types");
+const lodash_1 = require("lodash");
 const utils_1 = require("../nodes/utils");
 const comments_1 = require("../nodes/comments");
 function convertGenericProperty(member) {
@@ -20,10 +21,14 @@ function convertGenericProperty(member) {
 exports.convertGenericProperty = convertGenericProperty;
 function maybeConvertMethod(member, kind = 'method', baseMember = member) {
     if (t.isObjectMethod(member)) {
-        return comments_1.copyNodeComments(t.classMethod(kind, baseMember.key, member.params, member.body, baseMember.computed), member);
+        const classMethod = t.classMethod(kind, member.key, member.params, member.body, member.computed);
+        classMethod.async = member.async;
+        return comments_1.copyNodeComments(classMethod, member);
     }
     if (t.isFunctionExpression(member.value)) {
-        return comments_1.copyNodeComments(t.classMethod(kind, baseMember.key, member.value.params, member.value.body, baseMember.computed), member);
+        const classMethod = t.classMethod(kind, baseMember.key, member.value.params, member.value.body, baseMember.computed);
+        classMethod.async = member.value.async;
+        return comments_1.copyNodeComments(classMethod, member);
     }
     if (t.isArrowFunctionExpression(member.value)) {
         const arrowFunc = member.value;
@@ -41,3 +46,41 @@ function maybeConvertMethod(member, kind = 'method', baseMember = member) {
     return null;
 }
 exports.maybeConvertMethod = maybeConvertMethod;
+function convertSpreadVuexHelpers(spread, object_name) {
+    const callExpression = spread.argument;
+    const vuexHelperName = callExpression.callee.name;
+    const vuexHelperMap = {
+        mapGetters: 'Getter',
+        mapActions: 'Action',
+    };
+    if (vuexHelperName !== 'mapGetters' && vuexHelperName !== 'mapActions') {
+        console.warn(`Spread property is found in ${object_name} object. Automatic conversion of object spread is not supported.`);
+        return [utils_1.spreadTodoMethod(spread)];
+    }
+    const namespaceExpression = callExpression.arguments[0];
+    const mapExpression = callExpression.arguments[1];
+    // Example: { namespace: "Participants", decoratorName: "participantsStore.Action" }
+    const namespace = namespaceExpression.object.name;
+    const decoratorName = `${lodash_1.lowerFirst(namespace)}Store.${vuexHelperMap[vuexHelperName]}`;
+    if (t.isObjectExpression(mapExpression)) {
+        return mapExpression.properties.map(property => {
+            const key = property.key.name;
+            const propsOptions = property.value;
+            const classProperty = comments_1.copyNodeComments(t.classProperty(t.identifier(key)), property);
+            classProperty.decorators = [t.decorator(t.callExpression(t.identifier(decoratorName), [propsOptions]))];
+            return classProperty;
+        });
+    }
+    else if (t.isArrayExpression(mapExpression)) {
+        return mapExpression.elements.map(element => {
+            const key = 'TODO_unknownKey';
+            const propsOptions = element;
+            const classProperty = comments_1.copyNodeComments(t.classProperty(t.identifier(key)), element);
+            classProperty.decorators = [t.decorator(t.callExpression(t.identifier(decoratorName), [propsOptions]))];
+            return classProperty;
+        });
+    }
+    console.warn(`Spread property with unsupported expression found in ${object_name} object. Automatic conversion is not supported.`);
+    return [utils_1.spreadTodoMethod(spread)];
+}
+exports.convertSpreadVuexHelpers = convertSpreadVuexHelpers;

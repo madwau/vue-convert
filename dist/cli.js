@@ -51,22 +51,22 @@ class VueConvertCli {
             flags: {
                 style: {
                     alias: 's',
-                    type: 'string'
+                    type: 'string',
                 },
                 recursive: {
                     alias: 'r',
-                    type: 'boolean'
+                    type: 'boolean',
                 },
                 stdout: {
-                    type: 'boolean'
+                    type: 'boolean',
                 },
                 verbose: {
                     alias: 'v',
-                    type: 'boolean'
-                }
+                    type: 'boolean',
+                },
             },
             // TODO: PR type for minimist options
-            '--': true
+            '--': true,
         });
         const hasUnknown = Object.keys(this.options).some(key => OPTION_KEYS.indexOf(key) < 0);
         if (hasUnknown || this.paths.length === 0) {
