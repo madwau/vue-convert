@@ -73,15 +73,7 @@ export function convertComponentSourceToClass(source: string, file: string): str
   // Add: import { Vue, Component, Prop } from 'vue-property-decorator'
   ast.program.body.unshift(writeImport(importNames));
 
-  // Remove: import Vue from 'vue'
-  ast.program.body = ast.program.body.filter(node => {
-    return !(
-      t.isImportDeclaration(node) &&
-      node.source.value === 'vue' &&
-      node.specifiers.length === 1 &&
-      node.specifiers[0].local.name === 'Vue'
-    );
-  });
+  removeNotNeededImports(ast);
 
   const code = recast.print(ast, RECAST_OPTIONS).code;
 
@@ -182,6 +174,23 @@ function convertComponentBody(
   );
 
   return { classMembers, decoratorNames: [...decoratorNameSet] };
+}
+
+function removeNotNeededImports(ast: t.File) {
+  // Remove: import Vue from 'vue'
+  ast.program.body = ast.program.body.filter(node => {
+    return !(
+      t.isImportDeclaration(node) &&
+      node.source.value === 'vue' &&
+      node.specifiers.length === 1 &&
+      node.specifiers[0].local.name === 'Vue'
+    );
+  });
+
+  // Remove: import { mapActions, mapGetters } from 'vuex';
+  ast.program.body = ast.program.body.filter(node => {
+    return !(t.isImportDeclaration(node) && node.source.value === 'vuex');
+  });
 }
 
 function postProcessCode(code: string) {
