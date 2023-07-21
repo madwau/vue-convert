@@ -31,7 +31,7 @@
     "fs-readdir-recursive": "^1.1.0",
     "lodash.flatmap": "^4.5.0",
     "meow": "^5.0.0",
-    "recast": "^0.15.3"
+    "recast": "^0.21.1"
   },
   "devDependencies": {
     "@types/babel__parser": "^7.0.0",
