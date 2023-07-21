@@ -19,6 +19,9 @@ function convertSfcSource(source, file, converter) {
     const convertedScript = converter(strippedScript, file);
     if (convertedScript === null)
         return null;
-    return prefix + convertedScript + suffix;
+    return processPrefix(prefix) + convertedScript + suffix;
 }
 exports.convertSfcSource = convertSfcSource;
+function processPrefix(prefix) {
+    return prefix.replace(/<script>/, '<script lang="ts">');
+}
