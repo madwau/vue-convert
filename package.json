@@ -25,13 +25,13 @@
   },
   "homepage": "https://github.com/ypresto/vue-convert",
   "dependencies": {
-    "@babel/parser": "^7.0.0-rc.3",
-    "@babel/types": "^7.0.0",
-    "@vue/component-compiler-utils": "^2.2.0",
+    "@babel/parser": "^7.22.7",
+    "@babel/types": "^7.22.5",
+    "@vue/component-compiler-utils": "^3.3.0",
     "fs-readdir-recursive": "^1.1.0",
     "lodash.flatmap": "^4.5.0",
     "meow": "^5.0.0",
-    "recast": "^0.21.1"
+    "recast": "^0.23.3"
   },
   "devDependencies": {
     "@types/babel__parser": "^7.0.0",
@@ -39,7 +39,7 @@
     "@types/fs-readdir-recursive": "^1.0.0",
     "@types/lodash.flatmap": "^4.5.4",
     "@types/meow": "^4.0.1",
-    "@types/node": "^10.9.1",
+    "@types/node": "^18.16.19",
     "prettier": "^1.14.2",
     "ts-node": "^7.0.1",
     "typescript": "^3.0.1"
