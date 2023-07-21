@@ -64,7 +64,9 @@ function copyParentNodeComments(args) {
     // NOTE: Inner of parent object. Make them leading of first method.
     const innerComments = (parent.innerComments || []).map(c => toRecastComment(c, 'leading'));
     const trailingComments = (parent.trailingComments || []).map(c => toRecastComment(c, 'trailing'));
-    unshiftComment(leading, ...leadingComments.concat(innerComments));
-    pushComment(trailing, ...trailingComments);
+    if (leading && trailing) {
+        unshiftComment(leading, ...leadingComments.concat(innerComments));
+        pushComment(trailing, ...trailingComments);
+    }
 }
 exports.copyParentNodeComments = copyParentNodeComments;
