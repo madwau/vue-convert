@@ -70,16 +70,18 @@ export function convertComponentSourceToClass(source: string, file: string): str
   const { classDeclaration, importNames } = convertComponentToClass(exported.declaration);
   exported.declaration = classDeclaration;
 
+  // Add: const demosStore = namespace(Demos.type);
+  const { numberOfDeclarations: numberOfVuexStoreDeclarations } = addVuexStoreDeclarations(ast);
+
   // Add: import { Vue, Component, Prop } from 'vue-property-decorator'
   ast.program.body.unshift(writeImport(importNames));
 
-  // Add: import { namespace } from 'vuex-class';
-  addVuexClassNamespaceImport(ast);
+  if (numberOfVuexStoreDeclarations > 0) {
+    // Add: import { namespace } from 'vuex-class';
+    addVuexClassNamespaceImport(ast);
+  }
 
   removeNotNeededImports(ast);
-
-  // Add: const demosStore = namespace(Demos.type);
-  addVuexStoreDeclarations(ast);
 
   sortVueComponentClassMembers(ast);
 
@@ -243,6 +245,10 @@ function addVuexStoreDeclarations(ast: t.File) {
   declarations.reverse().forEach(declaration => {
     ast.program.body.splice(vueComponentIndex, 0, declaration);
   });
+
+  return {
+    numberOfDeclarations: declarations.length,
+  };
 }
 
 function sortVueComponentClassMembers(ast: t.File) {
