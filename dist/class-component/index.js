@@ -44,7 +44,18 @@ const RECAST_OPTIONS = {
     trailingComma: true,
 };
 function convertComponentSourceToClass(source, file) {
-    const ast = recast.parse(source, { parser });
+    if (source.includes('@Component')) {
+        console.debug(`${file}: Already has @Component decorator.`);
+        return null;
+    }
+    let ast;
+    try {
+        ast = recast.parse(source, { parser });
+    }
+    catch (e) {
+        console.warn(`${file}: Failed to parse: ${e.message}`);
+        return null;
+    }
     const exported = ast.program.body.find(node => t.isExportDefaultDeclaration(node));
     if (!exported) {
         console.warn(`${file}: No export default declaration found.`);

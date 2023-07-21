@@ -2,10 +2,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const meow = require("meow");
-const fs = require("fs");
-const path_1 = require("path");
 const readdirRecursive = require("fs-readdir-recursive");
 const flatMap = require("lodash.flatmap");
+const fs = require("fs");
+const path_1 = require("path");
 const sfc_1 = require("./sfc");
 const wrap_extend_1 = require("./wrap-extend");
 const class_component_1 = require("./class-component");
@@ -149,8 +149,7 @@ class VueConvertCli {
             catch (e) {
                 const ex = e;
                 console.error(`${file}: ${ex.message}`);
-                process.exit(1);
-                throw ''; // See https://github.com/Microsoft/TypeScript/issues/12825
+                converted = null;
             }
             if (converted === null)
                 continue;
