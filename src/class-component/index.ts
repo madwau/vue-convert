@@ -53,12 +53,12 @@ export function convertComponentSourceToClass(source: string, file: string): str
   const exported = ast.program.body.find(node => t.isExportDefaultDeclaration(node)) as t.ExportDefaultDeclaration;
 
   if (!exported) {
-    console.warn(`${file}: No export default declration found.`);
+    console.warn(`${file}: No export default declaration found.`);
     return null;
   }
 
   if (t.isClassDeclaration(exported.declaration)) {
-    console.warn(`${file}: Already has default exported class declration.`);
+    console.warn(`${file}: Already has default exported class declaration.`);
     return null;
   }
 
@@ -97,7 +97,7 @@ function convertComponentToClass(
   if (nameProperty && t.isStringLiteral(nameProperty.value)) {
     name = nameProperty.value.value;
   }
-  const className = name.replace(/(?:^|-)(\w)/g, (_, p1) => p1.toUpperCase()); // UpperCamzelize
+  const className = name.replace(/(?:^|-)(\w)/g, (_, p1) => p1.toUpperCase()); // UpperCamelize
 
   const { classMembers, decoratorNames } = convertComponentBody(componentAst);
 

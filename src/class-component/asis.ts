@@ -22,16 +22,20 @@ export function maybeConvertMethod(
   baseMember: t.ObjectMember = member,
 ): t.ClassMethod | null {
   if (t.isObjectMethod(member)) {
-    return copyNodeComments(
-      t.classMethod(kind, baseMember.key, member.params, member.body, baseMember.computed),
-      member,
-    );
+    const classMethod = t.classMethod(kind, member.key, member.params, member.body, member.computed);
+    classMethod.async = member.async;
+    return copyNodeComments(classMethod, member);
   }
   if (t.isFunctionExpression(member.value)) {
-    return copyNodeComments(
-      t.classMethod(kind, baseMember.key, member.value.params, member.value.body, baseMember.computed),
-      member,
+    const classMethod = t.classMethod(
+      kind,
+      baseMember.key,
+      member.value.params,
+      member.value.body,
+      baseMember.computed,
     );
+    classMethod.async = member.value.async;
+    return copyNodeComments(classMethod, member);
   }
   if (t.isArrowFunctionExpression(member.value)) {
     const arrowFunc = member.value;
