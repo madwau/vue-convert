@@ -1,6 +1,6 @@
 import * as t from '@babel/types';
 import { lowerFirst } from 'lodash';
-import { checkThisUsed, ClassMember, literalKey, MethodKind, todoProperty } from '../nodes/utils';
+import { checkThisUsed, ClassMember, literalKey, MethodKind, spreadTodoMethod, todoProperty } from '../nodes/utils';
 import { copyNodeComments } from '../nodes/comments';
 
 export function convertGenericProperty(member: t.ObjectMember): ClassMember[] {
@@ -49,14 +49,37 @@ export function maybeConvertMethod(
   return null;
 }
 
-export function convertSpreadMethods(spread: t.SpreadElement): ClassMember[] {
+export function convertSpreadVuexHelpers(spread: t.SpreadElement, object_name: string): ClassMember[] {
   const callExpression = spread.argument as t.CallExpression;
+  const vuexHelperName = (callExpression.callee as t.Identifier).name;
+
+  const vuexHelperMap = {
+    mapGetters: 'Getter',
+    mapActions: 'Action',
+  };
+
+  if (vuexHelperName !== 'mapGetters' && vuexHelperName !== 'mapActions') {
+    console.warn(
+      `Spread property is found in ${object_name} object. Automatic conversion of object spread is not supported.`,
+    );
+    return [spreadTodoMethod(spread)];
+  }
+
+  const namespaceExpression = callExpression.arguments[0] as t.MemberExpression;
+  const mapExpression = callExpression.arguments[1];
 
   // Example: { namespace: "Participants", decoratorName: "participantsStore.Action" }
-  const namespace = ((callExpression.arguments[0] as t.MemberExpression).object as t.Identifier).name;
-  const decoratorName = `${lowerFirst(namespace)}Store.Action`;
+  const namespace = (namespaceExpression.object as t.Identifier).name;
+  const decoratorName = `${lowerFirst(namespace)}Store.${vuexHelperMap[vuexHelperName]}`;
 
-  return (callExpression.arguments[1] as t.ObjectExpression).properties.map(property => {
+  if (!t.isObjectExpression(mapExpression)) {
+    console.warn(
+      `Spread property with array expression found in ${object_name} object. Automatic conversion is not supported.`,
+    );
+    return [spreadTodoMethod(spread)];
+  }
+
+  return mapExpression.properties.map(property => {
     const key = ((property as t.ObjectProperty).key as t.Identifier).name;
     const propsOptions = (property as t.ObjectProperty).value as t.Expression;
     const classProperty = copyNodeComments(t.classProperty(t.identifier(key)), property);

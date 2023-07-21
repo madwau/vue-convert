@@ -1,17 +1,12 @@
 import * as t from '@babel/types';
-import flatMap = require('lodash.flatmap');
-import { findProperty, literalKey, todoMethod, spreadTodoMethod } from '../nodes/utils';
+import { ClassMember, findProperty, literalKey, todoMethod } from '../nodes/utils';
 import { copyParentNodeComments } from '../nodes/comments';
-import { maybeConvertMethod } from './asis';
+import { convertSpreadVuexHelpers, maybeConvertMethod } from './asis';
+import flatMap = require('lodash.flatmap');
 
-export function convertComputed(objectAst: t.ObjectExpression): t.ClassMethod[] {
+export function convertComputed(objectAst: t.ObjectExpression): ClassMember[] {
   return flatMap(objectAst.properties, p => {
-    if (t.isSpreadElement(p)) {
-      console.warn(
-        'Spread property is found in computed object. Automatic conversion of object spread is not supported.',
-      );
-      return [spreadTodoMethod(p)];
-    }
+    if (t.isSpreadElement(p)) return convertSpreadVuexHelpers(p, 'computed');
     return computedObjectMemberToClassMember(p);
   });
 }
