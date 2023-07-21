@@ -266,10 +266,45 @@ function sortVueComponentClassMembers(ast: t.File) {
 }
 
 function postProcessCode(code: string) {
+  code = singleLineForProps(code);
   code = singleLineForGettersAndActions(code);
-  code = removeNewlineBetweenVuexHelpersOfSameType(code);
+  code = removeNewlineBetweenBlocksOfSameType(code);
   code = removeNewlinesInClassDecorator(code);
   return code;
+}
+
+function singleLineForProps(code: string) {
+  const lines = code.split('\n');
+  const resultLines: string[] = [];
+
+  const patterns = [/@Prop\(/, /@PropSync\(/];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    let lineToPush = line;
+
+    if (patterns.some(pattern => pattern.test(line.trim()))) {
+      for (let j = i + 1; j < lines.length; j++) {
+        const nextLine = lines[j];
+
+        if (nextLine.trim() === '})') {
+          lineToPush = lineToPush.replace(/,$/, '');
+        }
+
+        lineToPush += ` ${nextLine.trim()}`;
+        i++;
+
+        if (nextLine.includes(';')) {
+          break;
+        }
+      }
+    }
+
+    resultLines.push(lineToPush);
+  }
+
+  return resultLines.join('\n');
 }
 
 function singleLineForGettersAndActions(code: string) {
@@ -292,11 +327,11 @@ function singleLineForGettersAndActions(code: string) {
   return resultLines.join('\n');
 }
 
-function removeNewlineBetweenVuexHelpersOfSameType(code: string) {
+function removeNewlineBetweenBlocksOfSameType(code: string) {
   const lines = code.split('\n');
   const resultLines: string[] = [];
 
-  const patterns = [/^@.*\.Getter\(.*\)/, /^@.*\.Action\(.*\)/];
+  const patterns = [/@Prop\(/, /@PropSync\(/, /^@.*\.Getter\(.*\)/, /^@.*\.Action\(.*\)/];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
