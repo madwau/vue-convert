@@ -11,7 +11,7 @@ import { convertComputed } from './computed';
 import { convertAndModifyData } from './data';
 import { convertArrayProps, convertProps } from './props';
 import { convertMethods } from './methods';
-import flatMap = require('lodash.flatmap');
+import { flatMap, sortBy } from 'lodash';
 
 // TODO: if name is not UpperCamelCase, use name option.
 // name?: string;
@@ -74,6 +74,8 @@ export function convertComponentSourceToClass(source: string, file: string): str
   ast.program.body.unshift(writeImport(importNames));
 
   removeNotNeededImports(ast);
+
+  sortVueComponentClassMembers(ast);
 
   const code = recast.print(ast, RECAST_OPTIONS).code;
 
@@ -190,6 +192,20 @@ function removeNotNeededImports(ast: t.File) {
   // Remove: import { mapActions, mapGetters } from 'vuex';
   ast.program.body = ast.program.body.filter(node => {
     return !(t.isImportDeclaration(node) && node.source.value === 'vuex');
+  });
+}
+
+function sortVueComponentClassMembers(ast: t.File) {
+  const vueComponent = ast.program.body.find(node => {
+    return t.isExportDefaultDeclaration(node);
+  }) as t.ExportDefaultDeclaration;
+
+  const classBody = (vueComponent.declaration as t.ClassDeclaration).body;
+
+  classBody.body = sortBy(classBody.body, member => {
+    const typeProp = ['ClassProperty', 'ClassMethod'].indexOf(member.type);
+    const numberOfDecorators = t.isClassProperty(member) && member.decorators ? member.decorators.length : 0;
+    return [typeProp, -numberOfDecorators];
   });
 }
 

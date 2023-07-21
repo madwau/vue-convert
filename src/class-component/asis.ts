@@ -72,18 +72,26 @@ export function convertSpreadVuexHelpers(spread: t.SpreadElement, object_name: s
   const namespace = (namespaceExpression.object as t.Identifier).name;
   const decoratorName = `${lowerFirst(namespace)}Store.${vuexHelperMap[vuexHelperName]}`;
 
-  if (!t.isObjectExpression(mapExpression)) {
-    console.warn(
-      `Spread property with array expression found in ${object_name} object. Automatic conversion is not supported.`,
-    );
-    return [spreadTodoMethod(spread)];
+  if (t.isObjectExpression(mapExpression)) {
+    return mapExpression.properties.map(property => {
+      const key = ((property as t.ObjectProperty).key as t.Identifier).name;
+      const propsOptions = (property as t.ObjectProperty).value as t.Expression;
+      const classProperty = copyNodeComments(t.classProperty(t.identifier(key)), property);
+      classProperty.decorators = [t.decorator(t.callExpression(t.identifier(decoratorName), [propsOptions]))];
+      return classProperty;
+    });
+  } else if (t.isArrayExpression(mapExpression)) {
+    return mapExpression.elements.map(element => {
+      const key = 'TODO_unknownKey';
+      const propsOptions = element as t.Expression;
+      const classProperty = copyNodeComments(t.classProperty(t.identifier(key)), element as t.BaseNode);
+      classProperty.decorators = [t.decorator(t.callExpression(t.identifier(decoratorName), [propsOptions]))];
+      return classProperty;
+    });
   }
 
-  return mapExpression.properties.map(property => {
-    const key = ((property as t.ObjectProperty).key as t.Identifier).name;
-    const propsOptions = (property as t.ObjectProperty).value as t.Expression;
-    const classProperty = copyNodeComments(t.classProperty(t.identifier(key)), property);
-    classProperty.decorators = [t.decorator(t.callExpression(t.identifier(decoratorName), [propsOptions]))];
-    return classProperty;
-  });
+  console.warn(
+    `Spread property with unsupported expression found in ${object_name} object. Automatic conversion is not supported.`,
+  );
+  return [spreadTodoMethod(spread)];
 }
