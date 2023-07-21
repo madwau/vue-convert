@@ -11,7 +11,7 @@ import { convertComputed } from './computed';
 import { convertAndModifyData } from './data';
 import { convertArrayProps, convertProps } from './props';
 import { convertMethods } from './methods';
-import { flatMap, sortBy } from 'lodash';
+import { flatMap, sortBy, upperFirst } from 'lodash';
 
 // TODO: if name is not UpperCamelCase, use name option.
 // name?: string;
@@ -73,7 +73,13 @@ export function convertComponentSourceToClass(source: string, file: string): str
   // Add: import { Vue, Component, Prop } from 'vue-property-decorator'
   ast.program.body.unshift(writeImport(importNames));
 
+  // Add: import { namespace } from 'vuex-class';
+  addVuexClassNamespaceImport(ast);
+
   removeNotNeededImports(ast);
+
+  // Add: const demosStore = namespace(Demos.type);
+  addVuexStoreDeclarations(ast);
 
   sortVueComponentClassMembers(ast);
 
@@ -178,6 +184,21 @@ function convertComponentBody(
   return { classMembers, decoratorNames: [...decoratorNameSet] };
 }
 
+function addVuexClassNamespaceImport(ast: t.File) {
+  const importDeclaration = t.importDeclaration(
+    [t.importSpecifier(t.identifier('namespace'), t.identifier('namespace'))],
+    t.stringLiteral('vuex-class'),
+  );
+
+  const vuePropertyDecoratorImportIndex = ast.program.body.findIndex(node => {
+    return t.isImportDeclaration(node) && node.source.value === 'vue-property-decorator';
+  });
+
+  if (vuePropertyDecoratorImportIndex > -1) {
+    ast.program.body.splice(vuePropertyDecoratorImportIndex + 1, 0, importDeclaration);
+  }
+}
+
 function removeNotNeededImports(ast: t.File) {
   // Remove: import Vue from 'vue'
   ast.program.body = ast.program.body.filter(node => {
@@ -192,6 +213,35 @@ function removeNotNeededImports(ast: t.File) {
   // Remove: import { mapActions, mapGetters } from 'vuex';
   ast.program.body = ast.program.body.filter(node => {
     return !(t.isImportDeclaration(node) && node.source.value === 'vuex');
+  });
+}
+
+function addVuexStoreDeclarations(ast: t.File) {
+  const vueComponentIndex = ast.program.body.findIndex(node => {
+    return t.isExportDefaultDeclaration(node);
+  });
+  const vueComponent = ast.program.body[vueComponentIndex] as t.ExportDefaultDeclaration;
+
+  const classBody = (vueComponent.declaration as t.ClassDeclaration).body;
+
+  const storeNames = classBody.body
+    .filter((member): member is t.ClassProperty => t.isClassProperty(member))
+    .filter(member => member.decorators && member.decorators.length === 1)
+    .map(member => ((member.decorators![0].expression as t.CallExpression).callee as t.Identifier).name)
+    .filter(decoratorName => decoratorName.endsWith('Store.Getter') || decoratorName.endsWith('Store.Action'))
+    .map(decoratorName => decoratorName.split('.')[0]);
+
+  const uniqueStoreNames = [...new Set(storeNames)].sort();
+
+  const declarations = uniqueStoreNames.map(storeName => {
+    const storeObject = upperFirst(storeName).replace(/Store$/, '');
+    const rhsArgument = t.memberExpression(t.identifier(storeObject), t.identifier('type'));
+    const rhsExpression = t.callExpression(t.identifier('namespace'), [rhsArgument]);
+    return t.variableDeclaration('const', [t.variableDeclarator(t.identifier(storeName), rhsExpression)]);
+  });
+
+  declarations.reverse().forEach(declaration => {
+    ast.program.body.splice(vueComponentIndex, 0, declaration);
   });
 }
 
