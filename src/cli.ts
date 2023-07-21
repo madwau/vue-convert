@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-import meow = require('meow')
-import * as fs from 'fs'
-import { join as joinPaths } from 'path'
-import readdirRecursive = require('fs-readdir-recursive')
-import flatMap = require('lodash.flatmap')
-import { convertSfcSource } from './sfc'
-import { wrapComponentSourceWithExtend } from './wrap-extend'
-import { convertComponentSourceToClass } from './class-component'
+import meow = require('meow');
+import * as fs from 'fs';
+import { join as joinPaths } from 'path';
+import readdirRecursive = require('fs-readdir-recursive');
+import flatMap = require('lodash.flatmap');
+import { convertSfcSource } from './sfc';
+import { wrapComponentSourceWithExtend } from './wrap-extend';
+import { convertComponentSourceToClass } from './class-component';
 
 const HELP = `
   Usage
@@ -37,28 +37,28 @@ const HELP = `
 
     --help                Show this help.
     --version             Show version.
-`
+`;
 
 interface CliOptions {
-  style: string
-  recursive: boolean
-  stdout: boolean
-  verbose: boolean
+  style: string;
+  recursive: boolean;
+  stdout: boolean;
+  verbose: boolean;
 }
-const OPTION_KEYS = ['style', 's', 'recursive', 'r', 'stdout', 'verbose', 'v']
+const OPTION_KEYS = ['style', 's', 'recursive', 'r', 'stdout', 'verbose', 'v'];
 
-type Converter = (source: string, file: string) => string | null
+type Converter = (source: string, file: string) => string | null;
 
 export default class VueConvertCli {
-  private cli!: meow.Result
-  private converter!: Converter
+  private cli!: meow.Result;
+  private converter!: Converter;
 
   get options() {
-    return this.cli.flags as CliOptions
+    return this.cli.flags as CliOptions;
   }
 
   get paths() {
-    return this.cli.input
+    return this.cli.input;
   }
 
   run() {
@@ -66,50 +66,50 @@ export default class VueConvertCli {
       flags: {
         style: {
           alias: 's',
-          type: 'string'
+          type: 'string',
         },
         recursive: {
           alias: 'r',
-          type: 'boolean'
+          type: 'boolean',
         },
         stdout: {
-          type: 'boolean'
+          type: 'boolean',
         },
         verbose: {
           alias: 'v',
-          type: 'boolean'
-        }
+          type: 'boolean',
+        },
       },
       // TODO: PR type for minimist options
-      '--': true
-    } as meow.Options)
+      '--': true,
+    } as meow.Options);
 
-    const hasUnknown = Object.keys(this.options).some(key => OPTION_KEYS.indexOf(key) < 0)
+    const hasUnknown = Object.keys(this.options).some(key => OPTION_KEYS.indexOf(key) < 0);
     if (hasUnknown || this.paths.length === 0) {
-      this.cli.showHelp()
-      process.exit(1)
+      this.cli.showHelp();
+      process.exit(1);
     }
 
-    this.converter = this.createConverter()
+    this.converter = this.createConverter();
 
     if (this.options.recursive) {
-      this.convertDirs(this.paths)
+      this.convertDirs(this.paths);
     } else {
-      this.convertPaths(this.paths)
+      this.convertPaths(this.paths);
     }
   }
 
   private createConverter(): Converter {
-    const style = this.options.style
+    const style = this.options.style;
     switch (style) {
       case 'extend':
-        return wrapComponentSourceWithExtend
+        return wrapComponentSourceWithExtend;
       case 'class':
-        return convertComponentSourceToClass
+        return convertComponentSourceToClass;
     }
-    this.cli.showHelp()
-    process.exit(1)
-    throw '' // See https://github.com/Microsoft/TypeScript/issues/12825
+    this.cli.showHelp();
+    process.exit(1);
+    throw ''; // See https://github.com/Microsoft/TypeScript/issues/12825
   }
 
   private convertDirs(dirs: string[]) {
@@ -118,78 +118,78 @@ export default class VueConvertCli {
         try {
           return readdirRecursive(dir, name => name[0] !== '.' && name !== 'node_modules')
             .filter(path => path.endsWith('.vue'))
-            .map(path => joinPaths(dir, path))
+            .map(path => joinPaths(dir, path));
         } catch (e) {
-          const ex: Error = e
-          console.error(`${dir}: ${ex.message}`)
-          process.exit(1)
-          throw '' // See https://github.com/Microsoft/TypeScript/issues/12825
+          const ex: Error = e;
+          console.error(`${dir}: ${ex.message}`);
+          process.exit(1);
+          throw ''; // See https://github.com/Microsoft/TypeScript/issues/12825
         }
-      })
-    )
+      }),
+    );
   }
 
   private convertPaths(paths: string[]) {
     for (const path of paths) {
-      let stat: fs.Stats
+      let stat: fs.Stats;
       try {
-        stat = fs.statSync(path)
+        stat = fs.statSync(path);
       } catch (e) {
-        const ex: Error = e
-        console.error(`${path}: ${ex.message}`)
-        process.exit(1)
-        throw '' // See https://github.com/Microsoft/TypeScript/issues/12825
+        const ex: Error = e;
+        console.error(`${path}: ${ex.message}`);
+        process.exit(1);
+        throw ''; // See https://github.com/Microsoft/TypeScript/issues/12825
       }
       if (stat.isDirectory()) {
-        console.error(`${path}: Is directory.`)
-        process.exit(1)
+        console.error(`${path}: Is directory.`);
+        process.exit(1);
       }
       if (!stat.isFile()) {
-        console.error(`${path}: Is not regular file.`)
-        process.exit(1)
+        console.error(`${path}: Is not regular file.`);
+        process.exit(1);
       }
       if (!path.endsWith('.vue')) {
-        console.error(`${path}: Is not *.vue file.`)
-        process.exit(1)
+        console.error(`${path}: Is not *.vue file.`);
+        process.exit(1);
       }
     }
-    this.rewriteSfcFiles(paths)
+    this.rewriteSfcFiles(paths);
   }
 
   private rewriteSfcFiles(files: string[]) {
-    let convertedCount = 0
+    let convertedCount = 0;
 
     for (const file of files) {
       if (this.options.verbose) {
-        process.stderr.write(file + '\n')
+        process.stderr.write(file + '\n');
       }
 
-      const source = fs.readFileSync(file).toString()
-      let converted: string | null
+      const source = fs.readFileSync(file).toString();
+      let converted: string | null;
       try {
-        converted = convertSfcSource(source, file, this.converter)
+        converted = convertSfcSource(source, file, this.converter);
       } catch (e) {
-        const ex: Error = e
-        console.error(`${file}: ${ex.message}`)
-        process.exit(1)
-        throw '' // See https://github.com/Microsoft/TypeScript/issues/12825
+        const ex: Error = e;
+        console.error(`${file}: ${ex.message}`);
+        process.exit(1);
+        throw ''; // See https://github.com/Microsoft/TypeScript/issues/12825
       }
 
-      if (converted === null) continue
+      if (converted === null) continue;
 
       if (this.options.stdout) {
-        process.stdout.write(converted)
+        process.stdout.write(converted);
       } else {
-        fs.writeFileSync(file, converted)
+        fs.writeFileSync(file, converted);
       }
 
-      convertedCount++
+      convertedCount++;
     }
 
     if (!this.options.stdout) {
-      console.log(`Converted ${convertedCount} ${convertedCount === 1 ? 'file' : 'files'}.`)
+      console.log(`Converted ${convertedCount} ${convertedCount === 1 ? 'file' : 'files'}.`);
     }
   }
 }
 
-new VueConvertCli().run()
+new VueConvertCli().run();

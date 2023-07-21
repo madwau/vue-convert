@@ -1,18 +1,16 @@
-import * as t from '@babel/types'
-import { todoMethod, spreadTodoMethod } from '../nodes/utils'
-import { maybeConvertMethod } from './asis'
+import * as t from '@babel/types';
+import { flatten } from 'lodash';
+import { ClassMember, todoMethod } from '../nodes/utils';
+import { convertSpreadMethods, maybeConvertMethod } from './asis';
 
-export function convertMethods(objectAst: t.ObjectExpression): t.ClassMethod[] {
-  return objectAst.properties.map(p => {
-    if (t.isSpreadElement(p)) {
-      console.warn(
-        'Spread property is found in methods object. Automatic conversion of object spread is not supported.'
-      )
-      return spreadTodoMethod(p)
-    }
-    const method = maybeConvertMethod(p)
-    if (method) return method
-    console.warn(`Non-function property ${p.type} is found in methods object.`)
-    return todoMethod(p, 'method')
-  })
+export function convertMethods(objectAst: t.ObjectExpression): ClassMember[] {
+  return flatten(
+    objectAst.properties.map(p => {
+      if (t.isSpreadElement(p)) return convertSpreadMethods(p);
+      const method = maybeConvertMethod(p);
+      if (method) return method;
+      console.warn(`Non-function property ${p.type} is found in methods object.`);
+      return todoMethod(p, 'method');
+    }),
+  );
 }

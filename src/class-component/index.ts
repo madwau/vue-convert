@@ -4,14 +4,14 @@ import * as recast from 'recast';
 import { Options as RecastOptions } from 'recast/lib/options';
 import * as parser from 'recast/parsers/babylon';
 import * as t from '@babel/types';
-import flatMap = require('lodash.flatmap');
-import { findProperty, literalKey, spreadTodoMethod, ClassMember, todoClassMember } from '../nodes/utils';
+import { ClassMember, findProperty, literalKey, spreadTodoMethod, todoClassMember } from '../nodes/utils';
 
 import { convertGenericProperty } from './asis';
 import { convertComputed } from './computed';
 import { convertAndModifyData } from './data';
-import { convertProps, convertArrayProps } from './props';
+import { convertArrayProps, convertProps } from './props';
 import { convertMethods } from './methods';
+import flatMap = require('lodash.flatmap');
 
 // TODO: if name is not UpperCamelCase, use name option.
 // name?: string;
@@ -83,7 +83,9 @@ export function convertComponentSourceToClass(source: string, file: string): str
     );
   });
 
-  return recast.print(ast, RECAST_OPTIONS).code;
+  const code = recast.print(ast, RECAST_OPTIONS).code;
+
+  return postProcessCode(code);
 }
 
 function writeImport(names: string[]): t.ImportDeclaration {
@@ -180,4 +182,28 @@ function convertComponentBody(
   );
 
   return { classMembers, decoratorNames: [...decoratorNameSet] };
+}
+
+function postProcessCode(code: string) {
+  return singleLineForGettersAndActions(code);
+}
+
+function singleLineForGettersAndActions(code: string) {
+  const lines = code.split('\n');
+  const resultLines: string[] = [];
+
+  const patterns = [/^@.*\.Getter\(.*\)$/, /^@.*\.Action\(.*\)$/];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (patterns.some(pattern => pattern.test(line.trim())) && i + 1 < lines.length) {
+      const nextLine = lines[i + 1];
+      resultLines.push(`${line} ${nextLine.trim()}`);
+      i++;
+    } else {
+      resultLines.push(line);
+    }
+  }
+
+  return resultLines.join('\n');
 }
