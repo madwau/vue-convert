@@ -1,6 +1,6 @@
 import * as t from '@babel/types';
-import { literalKey, spreadTodoProperty, ClassMember, todoClassMember, checkThisUsed } from '../nodes/utils';
-import { copyNodeComments, pushComment, lineComment, copyParentNodeComments } from '../nodes/comments';
+import { checkThisUsed, ClassMember, literalKey, spreadTodoProperty, todoClassMember } from '../nodes/utils';
+import { copyNodeComments, copyParentNodeComments, lineComment, pushComment } from '../nodes/comments';
 import { convertGenericProperty } from './asis';
 
 export function convertAndModifyData(memberAst: t.ObjectMember): ClassMember[] {
@@ -90,11 +90,7 @@ function convertPropertyOfData(
   }
   const expr = property.value as t.Expression;
   if (checkThisUsed(expr)) {
-    const classProperty = t.classProperty(t.identifier(key), t.identifier('undefined'));
-    pushComment(
-      classProperty,
-      lineComment('vue-convert: This property will initialized in data() method, with `this` reference.'),
-    );
+    const classProperty = t.classProperty(t.identifier(key), null, t.tsTypeAnnotation(t.tsAnyKeyword()));
     return { classProperty, keepObjectMember: true };
   }
   if (t.isIdentifier(property.value) && property.value.name === 'undefined') {
