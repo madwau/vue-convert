@@ -8,9 +8,9 @@ function convertMethods(objectAst) {
     return lodash_1.flatten(objectAst.properties.map(p => {
         if (t.isSpreadElement(p))
             return asis_1.convertSpreadVuexHelpers(p, 'methods');
-        const method = asis_1.maybeConvertMethod(p);
-        if (method)
-            return method;
+        const methods = asis_1.maybeConvertMethod(p);
+        if (methods && methods.length === 1)
+            return methods[0];
         console.warn(`Non-function property ${p.type} is found in methods object.`);
         return utils_1.todoMethod(p, 'method');
     }));

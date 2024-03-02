@@ -12,7 +12,8 @@ function literalKey(expr) {
 exports.literalKey = literalKey;
 function findProperty(ast, name) {
     if (t.isObjectExpression(ast)) {
-        return ast.properties.find(p => t.isObjectProperty(p) && literalKey(p.key) === name);
+        return (ast.properties.find(p => t.isObjectProperty(p) && literalKey(p.key) === name) ||
+            ast.properties.find(p => t.isObjectMethod(p) && literalKey(p.key) === name));
     }
     else {
         return ast.body.body.find(p => t.isClassProperty(p) && literalKey(p.key) === name);

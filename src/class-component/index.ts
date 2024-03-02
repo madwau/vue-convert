@@ -114,7 +114,7 @@ function convertComponentToClass(
 ): { classDeclaration: t.ClassDeclaration; importNames: string[] } {
   const nameProperty = findProperty(componentAst, 'name');
   let name = 'AnonymousComponent';
-  if (nameProperty && t.isStringLiteral(nameProperty.value)) {
+  if (nameProperty && t.isObjectProperty(nameProperty) && t.isStringLiteral(nameProperty.value)) {
     name = nameProperty.value.value;
   }
   const className = name.replace(/(?:^|-)(\w)/g, (_, p1) => p1.toUpperCase()); // UpperCamelize

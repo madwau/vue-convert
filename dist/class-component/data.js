@@ -87,8 +87,7 @@ function convertPropertyOfData(property) {
     }
     const expr = property.value;
     if (utils_1.checkThisUsed(expr)) {
-        const classProperty = t.classProperty(t.identifier(key), t.identifier('undefined'));
-        comments_1.pushComment(classProperty, comments_1.lineComment('vue-convert: This property will initialized in data() method, with `this` reference.'));
+        const classProperty = t.classProperty(t.identifier(key), null, t.tsTypeAnnotation(t.tsAnyKeyword()));
         return { classProperty, keepObjectMember: true };
     }
     if (t.isIdentifier(property.value) && property.value.name === 'undefined') {

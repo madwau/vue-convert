@@ -6,9 +6,9 @@ const utils_1 = require("../nodes/utils");
 const comments_1 = require("../nodes/comments");
 function convertGenericProperty(member) {
     const key = utils_1.literalKey(member.key) || 'TODO_invalidKey';
-    const method = maybeConvertMethod(member);
-    if (method)
-        return [method];
+    const methods = maybeConvertMethod(member);
+    if (methods)
+        return methods;
     const property = member;
     if (t.isExpression(property.value)) {
         return [comments_1.copyNodeComments(t.classProperty(t.identifier(key), property.value), property)];
@@ -23,12 +23,27 @@ function maybeConvertMethod(member, kind = 'method', baseMember = member) {
     if (t.isObjectMethod(member)) {
         const classMethod = t.classMethod(kind, member.key, member.params, member.body, member.computed);
         classMethod.async = member.async;
-        return comments_1.copyNodeComments(classMethod, member);
+        return [comments_1.copyNodeComments(classMethod, member)];
+    }
+    if (t.isObjectProperty(member) &&
+        t.isObjectExpression(member.value) &&
+        member.value.properties.length === 2 &&
+        t.isObjectMethod(member.value.properties[0]) &&
+        t.isObjectMethod(member.value.properties[1]) &&
+        member.value.properties.map(p => p.key.name).includes('get') &&
+        member.value.properties.map(p => p.key.name).includes('set')) {
+        const getter = member.value.properties.find(p => p.key.name === 'get');
+        const setter = member.value.properties.find(p => p.key.name === 'set');
+        const classMethod = t.classMethod(kind, baseMember.key, getter.params, getter.body, baseMember.computed);
+        classMethod.async = getter.async;
+        const classMethod2 = t.classMethod('set', baseMember.key, setter.params, setter.body, baseMember.computed);
+        classMethod2.async = setter.async;
+        return [comments_1.copyNodeComments(classMethod, member), comments_1.copyNodeComments(classMethod2, member)];
     }
     if (t.isFunctionExpression(member.value)) {
         const classMethod = t.classMethod(kind, baseMember.key, member.value.params, member.value.body, baseMember.computed);
         classMethod.async = member.value.async;
-        return comments_1.copyNodeComments(classMethod, member);
+        return [comments_1.copyNodeComments(classMethod, member)];
     }
     if (t.isArrowFunctionExpression(member.value)) {
         const arrowFunc = member.value;
@@ -38,10 +53,10 @@ function maybeConvertMethod(member, kind = 'method', baseMember = member) {
         }
         // TODO: Maybe use @babel/traverse's path.arrowFunctionToExpression()
         if (t.isBlockStatement(arrowFunc.body)) {
-            return comments_1.copyNodeComments(t.classMethod(kind, baseMember.key, arrowFunc.params, arrowFunc.body), member);
+            return [comments_1.copyNodeComments(t.classMethod(kind, baseMember.key, arrowFunc.params, arrowFunc.body), member)];
         }
         const body = t.blockStatement([t.returnStatement(arrowFunc.body)]);
-        return comments_1.copyNodeComments(t.classMethod(kind, baseMember.key, arrowFunc.params, body), member);
+        return [comments_1.copyNodeComments(t.classMethod(kind, baseMember.key, arrowFunc.params, body), member)];
     }
     return null;
 }
@@ -77,7 +92,7 @@ function convertSpreadVuexHelpers(spread, object_name) {
     }
     else if (t.isArrayExpression(mapExpression)) {
         return mapExpression.elements.map(element => {
-            const key = 'TODO_unknownKey';
+            const key = element && t.isStringLiteral(element) ? element.value : 'TODO_unknownKey';
             const propsOptions = element;
             const classProperty = comments_1.copyNodeComments(t.classProperty(t.identifier(key)), element);
             classProperty.decorators = [t.decorator(t.callExpression(t.identifier(decoratorName), [propsOptions]))];
