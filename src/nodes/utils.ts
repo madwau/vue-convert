@@ -10,13 +10,14 @@ export function literalKey(expr: t.Expression): string | null {
   return null;
 }
 
-export function findProperty(ast: t.ObjectExpression, name: string): t.ObjectProperty | undefined;
+export function findProperty(ast: t.ObjectExpression, name: string): t.ObjectProperty | t.ObjectMethod | undefined;
 export function findProperty(ast: t.ClassExpression, name: string): t.ClassProperty | undefined;
 export function findProperty(ast: t.ObjectExpression | t.ClassExpression, name: string) {
   if (t.isObjectExpression(ast)) {
-    return ast.properties.find(p => t.isObjectProperty(p) && literalKey(p.key) === name) as
-      | t.ObjectProperty
-      | undefined;
+    return (
+      (ast.properties.find(p => t.isObjectProperty(p) && literalKey(p.key) === name) as t.ObjectProperty | undefined) ||
+      (ast.properties.find(p => t.isObjectMethod(p) && literalKey(p.key) === name) as t.ObjectMethod | undefined)
+    );
   } else {
     return ast.body.body.find(p => t.isClassProperty(p) && literalKey(p.key) === name) as t.ClassProperty | undefined;
   }

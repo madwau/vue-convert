@@ -5,8 +5,8 @@ import { copyNodeComments } from '../nodes/comments';
 
 export function convertGenericProperty(member: t.ObjectMember): ClassMember[] {
   const key = literalKey(member.key) || 'TODO_invalidKey';
-  const method = maybeConvertMethod(member);
-  if (method) return [method];
+  const methods = maybeConvertMethod(member);
+  if (methods) return methods;
   const property = member as t.ObjectProperty;
   if (t.isExpression(property.value)) {
     return [copyNodeComments(t.classProperty(t.identifier(key), property.value as t.Expression), property)];
@@ -20,11 +20,28 @@ export function maybeConvertMethod(
   member: t.ObjectMember,
   kind: MethodKind = 'method',
   baseMember: t.ObjectMember = member,
-): t.ClassMethod | null {
+): t.ClassMethod[] | null {
   if (t.isObjectMethod(member)) {
     const classMethod = t.classMethod(kind, member.key, member.params, member.body, member.computed);
     classMethod.async = member.async;
-    return copyNodeComments(classMethod, member);
+    return [copyNodeComments(classMethod, member)];
+  }
+  if (
+    t.isObjectProperty(member) &&
+    t.isObjectExpression(member.value) &&
+    member.value.properties.length === 2 &&
+    t.isObjectMethod(member.value.properties[0]) &&
+    t.isObjectMethod(member.value.properties[1]) &&
+    member.value.properties.map(p => (p as t.ObjectMethod).key.name).includes('get') &&
+    member.value.properties.map(p => (p as t.ObjectMethod).key.name).includes('set')
+  ) {
+    const getter = member.value.properties.find(p => (p as t.ObjectMethod).key.name === 'get') as t.ObjectMethod;
+    const setter = member.value.properties.find(p => (p as t.ObjectMethod).key.name === 'set') as t.ObjectMethod;
+    const classMethod = t.classMethod(kind, baseMember.key, getter.params, getter.body, baseMember.computed);
+    classMethod.async = getter.async;
+    const classMethod2 = t.classMethod('set', baseMember.key, setter.params, setter.body, baseMember.computed);
+    classMethod2.async = setter.async;
+    return [copyNodeComments(classMethod, member), copyNodeComments(classMethod2, member)];
   }
   if (t.isFunctionExpression(member.value)) {
     const classMethod = t.classMethod(
@@ -35,7 +52,7 @@ export function maybeConvertMethod(
       baseMember.computed,
     );
     classMethod.async = member.value.async;
-    return copyNodeComments(classMethod, member);
+    return [copyNodeComments(classMethod, member)];
   }
   if (t.isArrowFunctionExpression(member.value)) {
     const arrowFunc = member.value;
@@ -45,10 +62,10 @@ export function maybeConvertMethod(
     }
     // TODO: Maybe use @babel/traverse's path.arrowFunctionToExpression()
     if (t.isBlockStatement(arrowFunc.body)) {
-      return copyNodeComments(t.classMethod(kind, baseMember.key, arrowFunc.params, arrowFunc.body), member);
+      return [copyNodeComments(t.classMethod(kind, baseMember.key, arrowFunc.params, arrowFunc.body), member)];
     }
     const body = t.blockStatement([t.returnStatement(arrowFunc.body)]);
-    return copyNodeComments(t.classMethod(kind, baseMember.key, arrowFunc.params, body), member);
+    return [copyNodeComments(t.classMethod(kind, baseMember.key, arrowFunc.params, body), member)];
   }
   return null;
 }

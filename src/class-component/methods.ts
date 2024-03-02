@@ -7,8 +7,8 @@ export function convertMethods(objectAst: t.ObjectExpression): ClassMember[] {
   return flatten(
     objectAst.properties.map(p => {
       if (t.isSpreadElement(p)) return convertSpreadVuexHelpers(p, 'methods');
-      const method = maybeConvertMethod(p);
-      if (method) return method;
+      const methods = maybeConvertMethod(p);
+      if (methods && methods.length === 1) return methods[0];
       console.warn(`Non-function property ${p.type} is found in methods object.`);
       return todoMethod(p, 'method');
     }),
