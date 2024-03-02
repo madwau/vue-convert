@@ -110,7 +110,7 @@ export function convertSpreadVuexHelpers(spread: t.SpreadElement, object_name: s
     });
   } else if (t.isArrayExpression(mapExpression)) {
     return mapExpression.elements.map(element => {
-      const key = 'TODO_unknownKey';
+      const key = element && t.isStringLiteral(element) ? element.value : 'TODO_unknownKey';
       const propsOptions = element as t.Expression;
       const classProperty = copyNodeComments(t.classProperty(t.identifier(key)), element as t.BaseNode);
       classProperty.decorators = [t.decorator(t.callExpression(t.identifier(decoratorName), [propsOptions]))];
